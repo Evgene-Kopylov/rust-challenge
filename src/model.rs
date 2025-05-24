@@ -19,3 +19,15 @@ pub struct UserStats {
     pub avg_sell_price: f64,
     pub max_balance: f64,
 }
+
+impl UserStats {
+    pub fn new(address: &str) -> Self {
+        Self {
+            address: address.to_string(),
+            total_volume: 0.0,
+            avg_buy_price: 0.0,
+            avg_sell_price: 0.0,
+            max_balance: 0.0,
+        }
+    }
+}

@@ -15,8 +15,11 @@ fn main() -> anyhow::Result<()> {
     }
 
     for (i, transfer) in storage.transfers.iter().take(3).enumerate() {
+        // Выводим статистику для отправителя и получателя транзакции
         if let Some(user_stats) = storage.get_user_stats(&transfer.from)? {
-            println!("{}. {}: {:#?}", i + 1, transfer.from, user_stats);
+            println!("From: {}. {}: {:#?}", i + 1, transfer.from, user_stats);
+            let user_to_stats = storage.get_user_stats(&transfer.to)?;
+            println!("To: {}. {}: {:#?}", i + 1, transfer.to, user_to_stats);
         } else {
             println!("{}. {}: No stats available", i + 1, transfer.from);
         }

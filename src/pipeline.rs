@@ -53,44 +53,22 @@ pub fn make_transaction(
     storage: &mut impl crate::storage::Storage,
     transfer: &Transfer,
 ) -> anyhow::Result<()> {
-    // Получаем текущую статистику отправителя (если есть)
+    // Обновляем статистику отправителя (продавца)
     let mut sender_stats = storage
         .get_user_stats(&transfer.from)?
-        .unwrap_or_else(|| UserStats {
-            address: transfer.from.clone(),
-            total_volume: 0.0,
-            avg_buy_price: 0.0,
-            avg_sell_price: 0.0,
-            max_balance: 0.0,
-        });
+        .unwrap_or_else(|| UserStats::new(&transfer.from));
 
-    // Обновляем статистику отправителя
     sender_stats.total_volume += transfer.amount;
-    sender_stats.avg_sell_price = if sender_stats.avg_sell_price == 0.0 {
-        transfer.usd_price
-    } else {
-        (sender_stats.avg_sell_price + transfer.usd_price) / 2.0
-    };
+    sender_stats.avg_sell_price = calculate_avg_price(sender_stats.avg_sell_price, transfer.usd_price);
     sender_stats.max_balance = sender_stats.max_balance.max(transfer.amount);
 
-    // Получаем текущую статистику получателя (если есть)
+    // Обновляем статистику получателя (покупателя)
     let mut receiver_stats = storage
         .get_user_stats(&transfer.to)?
-        .unwrap_or_else(|| UserStats {
-            address: transfer.to.clone(),
-            total_volume: 0.0,
-            avg_buy_price: 0.0,
-            avg_sell_price: 0.0,
-            max_balance: 0.0,
-        });
+        .unwrap_or_else(|| UserStats::new(&transfer.to));
 
-    // Обновляем статистику получателя
     receiver_stats.total_volume += transfer.amount;
-    receiver_stats.avg_buy_price = if receiver_stats.avg_buy_price == 0.0 {
-        transfer.usd_price
-    } else {
-        (receiver_stats.avg_buy_price + transfer.usd_price) / 2.0
-    };
+    receiver_stats.avg_buy_price = calculate_avg_price(receiver_stats.avg_buy_price, transfer.usd_price);
     receiver_stats.max_balance = receiver_stats.max_balance.max(transfer.amount);
 
     storage.save_transfers(&[transfer.clone()])?;
@@ -98,6 +76,14 @@ pub fn make_transaction(
     storage.save_user_stats(&receiver_stats)?;
 
     Ok(())
+}
+
+fn calculate_avg_price(current_avg: f64, new_price: f64) -> f64 {
+    if current_avg == 0.0 {
+        new_price
+    } else {
+        (current_avg + new_price) / 2.0
+    }
 }
 
 
@@ -195,4 +181,42 @@ mod tests {
 
         Ok(())
     }
+
+#[test]
+fn test_receiver_avg_buy_price_accumulation() -> anyhow::Result<()> {
+    use crate::storage::MockStorage;
+
+    let mut storage = MockStorage::default();
+    let receiver_address = "0xReceiver".to_string();
+
+    // Первая транзакция (получатель)
+    let transfer1 = Transfer {
+        from: "0xSender1".to_string(),
+        to: receiver_address.clone(),
+        amount: 100.0,
+        usd_price: 1.0,
+        ts: 1,
+    };
+
+    // Вторая транзакция (получатель)
+    let transfer2 = Transfer {
+        from: "0xSender2".to_string(),
+        to: receiver_address.clone(),
+        amount: 100.0,
+        usd_price: 3.0,
+        ts: 2,
+    };
+
+    pipeline::make_transaction(&mut storage, &transfer1)?;
+    pipeline::make_transaction(&mut storage, &transfer2)?;
+
+    let stats = storage.get_user_stats(&receiver_address)?.unwrap();
+    
+    assert_eq!(stats.avg_buy_price, 2.0, "Средняя цена покупки должна быть (1.0 + 3.0) / 2 = 2.0");
+    assert_eq!(stats.total_volume, 200.0, "Общий объем должен быть 100 + 100 = 200");
+    assert_eq!(stats.avg_sell_price, 0.0, "Получатель не продавал, должна быть 0");
+
+    Ok(())
+}
+
 }
