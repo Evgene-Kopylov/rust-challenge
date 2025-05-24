@@ -9,7 +9,7 @@ pub trait Storage {
 
 #[derive(Default)]
 pub struct MockStorage {
-    transfers: Vec<Transfer>,
+    pub transfers: Vec<Transfer>,
     stats: HashMap<String, UserStats>,
 }
 
