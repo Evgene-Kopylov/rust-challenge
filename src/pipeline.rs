@@ -49,6 +49,7 @@ impl UserState {
     }
 }
 
+/// Рассчитывает статистику пользователей на основе транзакций
 pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
     let mut state = HashMap::<String, UserState>::new();
 
@@ -77,4 +78,3 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
         })
         .collect()
 }
-
