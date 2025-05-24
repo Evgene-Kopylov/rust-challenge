@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     
     // Выводим топ-10 пользователей из хранилища
     for (i, transfer) in storage.transfers.iter()
-        .take(10)
+        .take(3)
         .enumerate()
     {
         if let Some(user_stats) = storage.get_user_stats(&transfer.from)? {
