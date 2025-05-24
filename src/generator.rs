@@ -33,9 +33,15 @@ pub struct DefaultTransferGenerator {
     pub config: TransferGenConfig,
 }
 
-
 impl TransferGenerator for DefaultTransferGenerator {
     fn generate(&self, count: usize) -> anyhow::Result<Vec<Transfer>> {
+        if self.config.min_amount >= self.config.max_amount {
+            return Err(anyhow::anyhow!("Invalid amount range: min >= max"));
+        }
+        if self.config.min_price >= self.config.max_price {
+            return Err(anyhow::anyhow!("Invalid price range: min >= max"));
+        }
+
         let mut rng = rand::thread_rng();
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -70,10 +76,6 @@ fn rand_address(rng: &mut impl Rng) -> String {
     format!("0x{}", suffix)
 }
 
-pub fn generate_transfers(count: usize) -> anyhow::Result<Vec<Transfer>> {
-    let generator = DefaultTransferGenerator::default();
-    generator.generate(count)
-}
 
 #[cfg(test)]
 mod tests {
@@ -93,4 +95,17 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test]
+    fn test_invalid_config() {
+        let generator = DefaultTransferGenerator {
+            config: TransferGenConfig {
+                min_amount: 100.0,
+                max_amount: 10.0, // Невалидный диапазон
+                ..Default::default()
+            }
+        };
+        assert!(generator.generate(1).is_err());
+    }
 }
+

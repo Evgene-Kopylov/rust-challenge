@@ -34,9 +34,11 @@ impl UserState {
     }
 
     fn avg_price(&self, data: &[(f64, f64)]) -> f64 {
-                let (sum_px, sum_amt): (f64, f64) = data.iter().copied().fold((0.0, 0.0), |acc, (p, a)| (acc.0 + p * a, acc.1 + a));
-                if sum_amt > 0.0 { sum_px / sum_amt } else { 0.0 }
-            }
+        let (sum_px, sum_amt) = data
+            .iter()
+            .fold((0.0, 0.0), |(px, amt), (p, a)| (px + p * a, amt + a));
+        if sum_amt.abs() > f64::EPSILON { sum_px / sum_amt } else { 0.0 }
+    }
 }
 
 pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
