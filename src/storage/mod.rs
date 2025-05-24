@@ -2,12 +2,14 @@ use std::collections::HashMap;
 
 use crate::model::{Transfer, UserStats};
 
+/// Интерфейс для работы с хранилищем данных
 pub trait Storage {
     fn save_transfers(&mut self, transfers: &[Transfer]) -> anyhow::Result<()>;
     fn save_user_stats(&mut self, stats: &UserStats) -> anyhow::Result<()>;
     fn get_user_stats(&self, address: &str) -> anyhow::Result<Option<UserStats>>;
 }
 
+/// Mock-реализация хранилища для тестирования
 #[derive(Default)]
 pub struct MockStorage {
     pub transfers: Vec<Transfer>,
@@ -45,3 +47,4 @@ mod tests {
         assert_eq!(storage.transfers.len(), 2);
     }
 }
+
