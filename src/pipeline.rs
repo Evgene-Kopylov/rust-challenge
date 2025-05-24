@@ -49,9 +49,7 @@ impl UserState {
     }
 }
 
-
 pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
-
     let mut stats = HashMap::new();
 
     for transfer in transfers {
@@ -64,7 +62,11 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
         });
 
         sender.total_volume += transfer.amount;
-        sender.avg_sell_price = (sender.avg_sell_price + transfer.usd_price) / 2.0;
+        sender.avg_sell_price = if sender.avg_sell_price == 0.0 {
+            transfer.usd_price
+        } else {
+            (sender.avg_sell_price + transfer.usd_price) / 2.0
+        };
         sender.max_balance = sender.max_balance.max(transfer.amount);
 
         let receiver = stats.entry(&transfer.to).or_insert_with(|| UserStats {
@@ -76,9 +78,14 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
         });
 
         receiver.total_volume += transfer.amount;
-        receiver.avg_buy_price = (receiver.avg_buy_price + transfer.usd_price) / 2.0;
+        receiver.avg_buy_price = if receiver.avg_buy_price == 0.0 {
+            transfer.usd_price
+        } else {
+            (receiver.avg_buy_price + transfer.usd_price) / 2.0
+        };
         receiver.max_balance = receiver.max_balance.max(transfer.amount);
     }
 
     Ok(stats.into_values().collect())
 }
+
