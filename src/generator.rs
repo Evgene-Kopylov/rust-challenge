@@ -28,17 +28,11 @@ impl Default for TransferGenConfig {
     }
 }
 
+#[derive(Default)]
 pub struct DefaultTransferGenerator {
     pub config: TransferGenConfig,
 }
 
-impl Default for DefaultTransferGenerator {
-    fn default() -> Self {
-        Self {
-            config: TransferGenConfig::default(),
-        }
-    }
-}
 
 impl TransferGenerator for DefaultTransferGenerator {
     fn generate(&self, count: usize) -> anyhow::Result<Vec<Transfer>> {
