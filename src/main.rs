@@ -4,18 +4,14 @@ mod pipeline;
 mod storage;
 
 use generator::{DefaultTransferGenerator, TransferGenerator};
-use pipeline::calculate_user_stats;
 use storage::{MockStorage, Storage as _};
 
 fn main() -> anyhow::Result<()> {
     let transfers = DefaultTransferGenerator::default().generate(10_000)?;
-
     let mut storage = MockStorage::default();
-    storage.save_transfers(&transfers)?;
 
-    let stats = calculate_user_stats(&transfers)?;
-    for stat in stats {
-        storage.save_user_stats(&stat)?;
+    for transfer in &transfers {
+        pipeline::make_transaction(&mut storage, transfer)?;
     }
 
     for (i, transfer) in storage.transfers.iter().take(3).enumerate() {
@@ -36,18 +32,11 @@ mod tests {
     #[test]
     fn test_transfer_processing() -> anyhow::Result<()> {
         let generator = DefaultTransferGenerator::default();
-
         let transfers = generator.generate(1)?;
         let test_transfer = &transfers[0];
 
         let mut storage = MockStorage::default();
-
-        storage.save_transfers(&transfers)?;
-        let stats = calculate_user_stats(&transfers)?;
-
-        for stat in stats {
-            storage.save_user_stats(&stat)?;
-        }
+        pipeline::make_transaction(&mut storage, test_transfer)?;
 
         assert_eq!(
             storage.transfers.len(),
@@ -56,7 +45,6 @@ mod tests {
         );
 
         let stored_transfer = &storage.transfers[0];
-
         assert_eq!(
             stored_transfer.ts, test_transfer.ts,
             "Некорректное время транзакции"
@@ -115,6 +103,17 @@ mod tests {
             "Некорректная средняя цена покупки"
         );
 
+        assert_eq!(
+            from_stats.avg_buy_price, 0.0,
+            "У отправителя не должно быть средней цены покупки"
+        );
+
+        assert_eq!(
+            to_stats.avg_sell_price, 0.0,
+            "У получателя не должно быть средней цены продажи"
+        );
+
         Ok(())
     }
 }
+

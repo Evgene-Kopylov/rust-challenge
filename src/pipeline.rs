@@ -49,11 +49,14 @@ impl UserState {
     }
 }
 
-pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
-    let mut stats = HashMap::new();
-
-    for transfer in transfers {
-        let sender = stats.entry(&transfer.from).or_insert_with(|| UserStats {
+pub fn make_transaction(
+    storage: &mut impl crate::storage::Storage,
+    transfer: &Transfer,
+) -> anyhow::Result<()> {
+    // Получаем текущую статистику отправителя (если есть)
+    let mut sender_stats = storage
+        .get_user_stats(&transfer.from)?
+        .unwrap_or_else(|| UserStats {
             address: transfer.from.clone(),
             total_volume: 0.0,
             avg_buy_price: 0.0,
@@ -61,15 +64,19 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
             max_balance: 0.0,
         });
 
-        sender.total_volume += transfer.amount;
-        sender.avg_sell_price = if sender.avg_sell_price == 0.0 {
-            transfer.usd_price
-        } else {
-            (sender.avg_sell_price + transfer.usd_price) / 2.0
-        };
-        sender.max_balance = sender.max_balance.max(transfer.amount);
+    // Обновляем статистику отправителя
+    sender_stats.total_volume += transfer.amount;
+    sender_stats.avg_sell_price = if sender_stats.avg_sell_price == 0.0 {
+        transfer.usd_price
+    } else {
+        (sender_stats.avg_sell_price + transfer.usd_price) / 2.0
+    };
+    sender_stats.max_balance = sender_stats.max_balance.max(transfer.amount);
 
-        let receiver = stats.entry(&transfer.to).or_insert_with(|| UserStats {
+    // Получаем текущую статистику получателя (если есть)
+    let mut receiver_stats = storage
+        .get_user_stats(&transfer.to)?
+        .unwrap_or_else(|| UserStats {
             address: transfer.to.clone(),
             total_volume: 0.0,
             avg_buy_price: 0.0,
@@ -77,25 +84,35 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
             max_balance: 0.0,
         });
 
-        receiver.total_volume += transfer.amount;
-        receiver.avg_buy_price = if receiver.avg_buy_price == 0.0 {
-            transfer.usd_price
-        } else {
-            (receiver.avg_buy_price + transfer.usd_price) / 2.0
-        };
-        receiver.max_balance = receiver.max_balance.max(transfer.amount);
-    }
+    // Обновляем статистику получателя
+    receiver_stats.total_volume += transfer.amount;
+    receiver_stats.avg_buy_price = if receiver_stats.avg_buy_price == 0.0 {
+        transfer.usd_price
+    } else {
+        (receiver_stats.avg_buy_price + transfer.usd_price) / 2.0
+    };
+    receiver_stats.max_balance = receiver_stats.max_balance.max(transfer.amount);
 
-    Ok(stats.into_values().collect())
+    storage.save_transfers(&[transfer.clone()])?;
+    storage.save_user_stats(&sender_stats)?;
+    storage.save_user_stats(&receiver_stats)?;
+
+    Ok(())
 }
+
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::model::Transfer;
+    use crate::pipeline;
+    use crate::storage::Storage;
 
     #[test]
-    fn test_avg_buy_price_calculation() -> anyhow::Result<()> {
+    fn test_make_transaction() -> anyhow::Result<()> {
+        use crate::storage::MockStorage;
+
+        let mut storage = MockStorage::default();
         let transfer = Transfer {
             from: "0xSender".to_string(),
             to: "0xReceiver".to_string(),
@@ -104,11 +121,37 @@ mod tests {
             ts: 1234567890,
         };
 
-        let stats = calculate_user_stats(&[transfer])?;
+        make_transaction(&mut storage, &transfer)?;
 
-        let receiver_stats = stats.iter()
-            .find(|s| s.address == "0xReceiver")
-            .unwrap();
+        assert_eq!(storage.transfers.len(), 1);
+        assert_eq!(storage.transfers[0].amount, 100.0);
+
+        let sender_stats = storage.get_user_stats("0xSender")?.unwrap();
+        assert_eq!(sender_stats.total_volume, 100.0);
+        assert_eq!(sender_stats.avg_sell_price, 1.5);
+
+        let receiver_stats = storage.get_user_stats("0xReceiver")?.unwrap();
+        assert_eq!(receiver_stats.total_volume, 100.0);
+        assert_eq!(receiver_stats.avg_buy_price, 1.5);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_avg_buy_price_calculation() -> anyhow::Result<()> {
+        use crate::storage::MockStorage;
+
+        let mut storage = MockStorage::default();
+        let transfer = Transfer {
+            from: "0xSender".to_string(),
+            to: "0xReceiver".to_string(),
+            amount: 100.0,
+            usd_price: 1.5,
+            ts: 1234567890,
+        };
+
+        pipeline::make_transaction(&mut storage, &transfer)?;
+        let receiver_stats = storage.get_user_stats("0xReceiver")?.unwrap();
 
         assert_eq!(
             receiver_stats.avg_buy_price, 1.5,
@@ -120,6 +163,9 @@ mod tests {
 
     #[test]
     fn test_multiple_transfers_avg() -> anyhow::Result<()> {
+        use crate::storage::MockStorage;
+
+        let mut storage = MockStorage::default();
         let transfers = vec![
             Transfer {
                 from: "0xSender1".to_string(),
@@ -137,11 +183,11 @@ mod tests {
             },
         ];
 
-        let stats = calculate_user_stats(&transfers)?;
-        let receiver_stats = stats.iter()
-            .find(|s| s.address == "0xReceiver")
-            .unwrap();
+        for transfer in &transfers {
+            pipeline::make_transaction(&mut storage, transfer)?;
+        }
 
+        let receiver_stats = storage.get_user_stats("0xReceiver")?.unwrap();
         assert_eq!(
             receiver_stats.avg_buy_price, 2.0,
             "Средняя цена должна быть (1.0 + 3.0) / 2 = 2.0"
