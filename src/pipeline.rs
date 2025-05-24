@@ -1,47 +1,69 @@
 use crate::model::{Transfer, UserStats};
 use std::collections::HashMap;
+use anyhow::Result;
 
-pub fn calculate_user_stats(transfers: &[Transfer]) -> Vec<UserStats> {
-    let mut balances: HashMap<String, f64> = HashMap::new();
-    let mut max_balances: HashMap<String, f64> = HashMap::new();
-    let mut buy_prices: HashMap<String, Vec<(f64, f64)>> = HashMap::new();
-    let mut sell_prices: HashMap<String, Vec<(f64, f64)>> = HashMap::new();
+struct UserState {
+    balance: f64,
+    max_balance: f64,
+    buy_prices: Vec<(f64, f64)>,
+    sell_prices: Vec<(f64, f64)>,
+}
 
-    for t in transfers {
-        *balances.entry(t.from.clone()).or_default() -= t.amount;
-        *balances.entry(t.to.clone()).or_default() += t.amount;
+impl Default for UserState {
+    fn default() -> Self {
+        UserState {
+            balance: 0.0,
+            max_balance: 0.0,
+            buy_prices: Vec::new(),
+            sell_prices: Vec::new(),
+        }
+    }
+}
 
-        let to_balance = balances.get(&t.to).copied().unwrap_or(0.0);
-        let from_balance = balances.get(&t.from).copied().unwrap_or(0.0);
-        max_balances.entry(t.to.clone()).and_modify(|b| *b = b.max(to_balance)).or_insert(to_balance);
-        max_balances.entry(t.from.clone()).and_modify(|b| *b = b.max(from_balance)).or_insert(from_balance);
-
-        buy_prices.entry(t.to.clone()).or_default().push((t.usd_price, t.amount));
-        sell_prices.entry(t.from.clone()).or_default().push((t.usd_price, t.amount));
+impl UserState {
+    fn total_volume(&self) -> f64 {
+        self.buy_prices.iter().chain(&self.sell_prices).map(|(_, amt)| amt).sum()
     }
 
-    let all_addresses: std::collections::HashSet<_> =
-        buy_prices.keys().chain(sell_prices.keys()).cloned().collect();
+    fn avg_buy_price(&self) -> f64 {
+        self.avg_price(&self.buy_prices)
+    }
 
-    all_addresses
-        .into_iter()
-        .map(|addr| {
-            let buys = buy_prices.get(&addr).cloned().unwrap_or_default();
-            let sells = sell_prices.get(&addr).cloned().unwrap_or_default();
-            let total_volume: f64 = buys.iter().chain(&sells).map(|(_, amt)| amt).sum();
+    fn avg_sell_price(&self) -> f64 {
+        self.avg_price(&self.sell_prices)
+    }
 
-            let avg = |data: &[(f64, f64)]| {
+    fn avg_price(&self, data: &[(f64, f64)]) -> f64 {
                 let (sum_px, sum_amt): (f64, f64) = data.iter().copied().fold((0.0, 0.0), |acc, (p, a)| (acc.0 + p * a, acc.1 + a));
                 if sum_amt > 0.0 { sum_px / sum_amt } else { 0.0 }
-            };
-
-            UserStats {
-                address: addr.clone(),
-                total_volume,
-                avg_buy_price: avg(&buys),
-                avg_sell_price: avg(&sells),
-                max_balance: *max_balances.get(&addr).unwrap_or(&0.0),
             }
+}
+
+pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
+    let mut state = HashMap::<String, UserState>::new();
+
+    for t in transfers {
+        let from = state.entry(t.from.clone()).or_default();
+        from.balance -= t.amount;
+        from.max_balance = from.max_balance.max(from.balance);
+        from.sell_prices.push((t.usd_price, t.amount));
+
+        let to = state.entry(t.to.clone()).or_default();
+        to.balance += t.amount;
+        to.max_balance = to.max_balance.max(to.balance);
+        to.buy_prices.push((t.usd_price, t.amount));
+    }
+
+    state.into_iter()
+        .map(|(addr, s)| {
+            Ok(UserStats {
+                address: addr,
+                total_volume: s.total_volume(),
+                avg_buy_price: s.avg_buy_price(),
+                avg_sell_price: s.avg_sell_price(),
+                max_balance: s.max_balance,
+        })
         })
         .collect()
 }
+

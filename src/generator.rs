@@ -81,3 +81,22 @@ pub fn generate_transfers(count: usize) -> anyhow::Result<Vec<Transfer>> {
     generator.generate(count)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_generate_transfers() -> anyhow::Result<()> {
+        let generator = DefaultTransferGenerator::default();
+        let transfers = generator.generate(10)?;
+
+        assert_eq!(transfers.len(), 10);
+        for t in transfers {
+            assert!(t.amount >= generator.config.min_amount);
+            assert!(t.amount <= generator.config.max_amount);
+            assert!(t.from.starts_with("0x"));
+            assert!(t.to.starts_with("0x"));
+        }
+        Ok(())
+    }
+}
