@@ -89,3 +89,64 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
     Ok(stats.into_values().collect())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::Transfer;
+
+    #[test]
+    fn test_avg_buy_price_calculation() -> anyhow::Result<()> {
+        let transfer = Transfer {
+            from: "0xSender".to_string(),
+            to: "0xReceiver".to_string(),
+            amount: 100.0,
+            usd_price: 1.5,
+            ts: 1234567890,
+        };
+
+        let stats = calculate_user_stats(&[transfer])?;
+
+        let receiver_stats = stats.iter()
+            .find(|s| s.address == "0xReceiver")
+            .unwrap();
+
+        assert_eq!(
+            receiver_stats.avg_buy_price, 1.5,
+            "avg_buy_price должен равняться цене транзакции"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_multiple_transfers_avg() -> anyhow::Result<()> {
+        let transfers = vec![
+            Transfer {
+                from: "0xSender1".to_string(),
+                to: "0xReceiver".to_string(),
+                amount: 100.0,
+                usd_price: 1.0,
+                ts: 1,
+            },
+            Transfer {
+                from: "0xSender2".to_string(),
+                to: "0xReceiver".to_string(),
+                amount: 100.0,
+                usd_price: 3.0,
+                ts: 2,
+            },
+        ];
+
+        let stats = calculate_user_stats(&transfers)?;
+        let receiver_stats = stats.iter()
+            .find(|s| s.address == "0xReceiver")
+            .unwrap();
+
+        assert_eq!(
+            receiver_stats.avg_buy_price, 2.0,
+            "Средняя цена должна быть (1.0 + 3.0) / 2 = 2.0"
+        );
+
+        Ok(())
+    }
+}

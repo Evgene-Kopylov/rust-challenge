@@ -14,8 +14,8 @@ fn main() -> anyhow::Result<()> {
     storage.save_transfers(&transfers)?;
 
     let stats = calculate_user_stats(&transfers)?;
-    for stat in stats.iter() {
-        storage.save_user_stats(stat)?;
+    for stat in stats {
+        storage.save_user_stats(&stat)?;
     }
 
     for (i, transfer) in storage.transfers.iter().take(3).enumerate() {
