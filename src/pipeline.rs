@@ -49,32 +49,36 @@ impl UserState {
     }
 }
 
-/// Рассчитывает статистику пользователей на основе транзакций
+
 pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
-    let mut state = HashMap::<String, UserState>::new();
 
-    for t in transfers {
-        let from = state.entry(t.from.clone()).or_default();
-        from.balance -= t.amount;
-        from.max_balance = from.max_balance.max(from.balance);
-        from.sell_prices.push((t.usd_price, t.amount));
+    let mut stats = HashMap::new();
 
-        let to = state.entry(t.to.clone()).or_default();
-        to.balance += t.amount;
-        to.max_balance = to.max_balance.max(to.balance);
-        to.buy_prices.push((t.usd_price, t.amount));
+    for transfer in transfers {
+        let sender = stats.entry(&transfer.from).or_insert_with(|| UserStats {
+            address: transfer.from.clone(),
+            total_volume: 0.0,
+            avg_buy_price: 0.0,
+            avg_sell_price: 0.0,
+            max_balance: 0.0,
+        });
+
+        sender.total_volume += transfer.amount;
+        sender.avg_sell_price = (sender.avg_sell_price + transfer.usd_price) / 2.0;
+        sender.max_balance = sender.max_balance.max(transfer.amount);
+
+        let receiver = stats.entry(&transfer.to).or_insert_with(|| UserStats {
+            address: transfer.to.clone(),
+            total_volume: 0.0,
+            avg_buy_price: 0.0,
+            avg_sell_price: 0.0,
+            max_balance: 0.0,
+        });
+
+        receiver.total_volume += transfer.amount;
+        receiver.avg_buy_price = (receiver.avg_buy_price + transfer.usd_price) / 2.0;
+        receiver.max_balance = receiver.max_balance.max(transfer.amount);
     }
 
-    state
-        .into_iter()
-        .map(|(addr, s)| {
-            Ok(UserStats {
-                address: addr,
-                total_volume: s.total_volume(),
-                avg_buy_price: s.avg_buy_price(),
-                avg_sell_price: s.avg_sell_price(),
-                max_balance: s.max_balance,
-            })
-        })
-        .collect()
+    Ok(stats.into_values().collect())
 }
