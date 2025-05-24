@@ -4,6 +4,7 @@ use crate::model::{Transfer, UserStats};
 
 pub trait Storage {
     fn save_transfers(&mut self, transfers: &[Transfer]) -> anyhow::Result<()>;
+    fn save_user_stats(&mut self, stats: &UserStats) -> anyhow::Result<()>;
     fn get_user_stats(&self, address: &str) -> anyhow::Result<Option<UserStats>>;
 }
 
@@ -16,6 +17,11 @@ pub struct MockStorage {
 impl Storage for MockStorage {
     fn save_transfers(&mut self, transfers: &[Transfer]) -> anyhow::Result<()> {
         self.transfers.extend_from_slice(transfers);
+        Ok(())
+    }
+    
+    fn save_user_stats(&mut self, stats: &UserStats) -> anyhow::Result<()> {
+        self.stats.insert(stats.address.clone(), stats.clone());
         Ok(())
     }
 

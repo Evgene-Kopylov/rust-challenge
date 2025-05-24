@@ -15,10 +15,8 @@ fn main() -> anyhow::Result<()> {
     storage.save_transfers(&transfers)?;
     
     let stats = calculate_user_stats(&transfers)?;
-
-    // Печатаем статистику для каждого пользователя
-    for stat in stats.iter().take(10) {
-        println!("stat:  {:#?}", stat);
+    for stat in stats.iter() {
+        storage.save_user_stats(stat)?;
     }
     
     // Выводим топ-10 пользователей из хранилища
