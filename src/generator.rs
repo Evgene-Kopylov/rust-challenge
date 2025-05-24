@@ -72,3 +72,8 @@ fn rand_address(rng: &mut impl Rng) -> String {
         .collect();
     format!("0x{}", suffix)
 }
+
+pub fn generate_transfers(count: usize) -> anyhow::Result<Vec<Transfer>> {
+    let generator = DefaultTransferGenerator::default();
+    Ok(generator.generate(count))
+}
