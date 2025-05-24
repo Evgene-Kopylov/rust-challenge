@@ -21,7 +21,7 @@ impl Storage for MockStorage {
         self.transfers.extend_from_slice(transfers);
         Ok(())
     }
-    
+
     fn save_user_stats(&mut self, stats: &UserStats) -> anyhow::Result<()> {
         self.stats.insert(stats.address.clone(), stats.clone());
         Ok(())
@@ -38,13 +38,9 @@ mod tests {
     #[test]
     fn test_save_transfers() {
         let mut storage = MockStorage::default();
-        let transfers = vec![
-            Transfer::default(),
-            Transfer::default()
-        ];
-        
+        let transfers = vec![Transfer::default(), Transfer::default()];
+
         assert!(storage.save_transfers(&transfers).is_ok());
         assert_eq!(storage.transfers.len(), 2);
     }
 }
-

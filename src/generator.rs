@@ -1,7 +1,7 @@
 use crate::model::Transfer;
+use anyhow::Context;
 use rand::{distributions::Alphanumeric, Rng};
 use std::time::{SystemTime, UNIX_EPOCH};
-use anyhow::Context;
 
 /// Генерирует тестовые транзакции
 pub trait TransferGenerator {
@@ -105,7 +105,7 @@ mod tests {
                 min_amount: 100.0,
                 max_amount: 10.0, // Невалидный диапазон
                 ..Default::default()
-            }
+            },
         };
         assert!(generator.generate(1).is_err());
     }

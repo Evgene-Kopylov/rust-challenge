@@ -19,4 +19,3 @@ pub struct UserStats {
     pub avg_sell_price: f64,
     pub max_balance: f64,
 }
-

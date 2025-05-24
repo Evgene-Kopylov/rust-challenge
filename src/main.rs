@@ -1,5 +1,5 @@
-mod model;
 mod generator;
+mod model;
 mod pipeline;
 mod storage;
 
@@ -9,23 +9,20 @@ use storage::{MockStorage, Storage as _};
 
 fn main() -> anyhow::Result<()> {
     let transfers = DefaultTransferGenerator::default().generate(10_000)?;
-    
+
     let mut storage = MockStorage::default();
     storage.save_transfers(&transfers)?;
-    
+
     let stats = calculate_user_stats(&transfers)?;
     for stat in stats.iter() {
         storage.save_user_stats(stat)?;
     }
-    
-    for (i, transfer) in storage.transfers.iter()
-        .take(3)
-        .enumerate()
-    {
+
+    for (i, transfer) in storage.transfers.iter().take(3).enumerate() {
         if let Some(user_stats) = storage.get_user_stats(&transfer.from)? {
-            println!("{}. {}: {:#?}", i+1, transfer.from, user_stats);
+            println!("{}. {}: {:#?}", i + 1, transfer.from, user_stats);
         } else {
-            println!("{}. {}: No stats available", i+1, transfer.from);
+            println!("{}. {}: No stats available", i + 1, transfer.from);
         }
     }
 
@@ -35,7 +32,6 @@ fn main() -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Transfer;
 
     #[test]
     fn test_transfer_processing() -> anyhow::Result<()> {
@@ -54,34 +50,33 @@ mod tests {
         }
 
         assert_eq!(
-            storage.transfers.len(), 1,
+            storage.transfers.len(),
+            1,
             "Транзакция не сохранена в хранилище"
         );
 
         let stored_transfer = &storage.transfers[0];
-        
+
         assert_eq!(
             stored_transfer.ts, test_transfer.ts,
             "Некорректное время транзакции"
         );
 
         assert!(
-            stored_transfer.from.starts_with("0x")
-            && stored_transfer.from.len() == 12,
+            stored_transfer.from.starts_with("0x") && stored_transfer.from.len() == 12,
             "Некорректный адрес отправителя: {}",
             stored_transfer.from
         );
 
         assert!(
-            stored_transfer.to.starts_with("0x")
-            && stored_transfer.to.len() == 12,
+            stored_transfer.to.starts_with("0x") && stored_transfer.to.len() == 12,
             "Некорректный адрес получателя: {}",
             stored_transfer.to
         );
 
         assert!(
             stored_transfer.amount >= generator.config.min_amount
-            && stored_transfer.amount <= generator.config.max_amount,
+                && stored_transfer.amount <= generator.config.max_amount,
             "Сумма {} выходит за пределы диапазона [{}, {}]",
             stored_transfer.amount,
             generator.config.min_amount,
@@ -90,7 +85,7 @@ mod tests {
 
         assert!(
             stored_transfer.usd_price >= generator.config.min_price
-            && stored_transfer.usd_price <= generator.config.max_price,
+                && stored_transfer.usd_price <= generator.config.max_price,
             "Цена {} выходит за пределы диапазона [{}, {}]",
             stored_transfer.usd_price,
             generator.config.min_price,

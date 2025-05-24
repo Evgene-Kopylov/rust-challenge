@@ -1,6 +1,6 @@
 use crate::model::{Transfer, UserStats};
-use std::collections::HashMap;
 use anyhow::Result;
+use std::collections::HashMap;
 
 struct UserState {
     balance: f64,
@@ -22,7 +22,11 @@ impl Default for UserState {
 
 impl UserState {
     fn total_volume(&self) -> f64 {
-        self.buy_prices.iter().chain(&self.sell_prices).map(|(_, amt)| amt).sum()
+        self.buy_prices
+            .iter()
+            .chain(&self.sell_prices)
+            .map(|(_, amt)| amt)
+            .sum()
     }
 
     fn avg_buy_price(&self) -> f64 {
@@ -37,7 +41,11 @@ impl UserState {
         let (sum_px, sum_amt) = data
             .iter()
             .fold((0.0, 0.0), |(px, amt), (p, a)| (px + p * a, amt + a));
-        if sum_amt.abs() > f64::EPSILON { sum_px / sum_amt } else { 0.0 }
+        if sum_amt.abs() > f64::EPSILON {
+            sum_px / sum_amt
+        } else {
+            0.0
+        }
     }
 }
 
@@ -56,7 +64,8 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
         to.buy_prices.push((t.usd_price, t.amount));
     }
 
-    state.into_iter()
+    state
+        .into_iter()
         .map(|(addr, s)| {
             Ok(UserStats {
                 address: addr,
@@ -64,7 +73,7 @@ pub fn calculate_user_stats(transfers: &[Transfer]) -> Result<Vec<UserStats>> {
                 avg_buy_price: s.avg_buy_price(),
                 avg_sell_price: s.avg_sell_price(),
                 max_balance: s.max_balance,
-        })
+            })
         })
         .collect()
 }
