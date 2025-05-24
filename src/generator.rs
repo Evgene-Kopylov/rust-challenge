@@ -3,10 +3,12 @@ use rand::{distributions::Alphanumeric, Rng};
 use std::time::{SystemTime, UNIX_EPOCH};
 use anyhow::Context;
 
+/// Генерирует тестовые транзакции
 pub trait TransferGenerator {
     fn generate(&self, count: usize) -> anyhow::Result<Vec<Transfer>>;
 }
 
+/// Конфигурация генератора транзакций
 #[derive(Debug, Clone)]
 pub struct TransferGenConfig {
     pub min_amount: f64,
@@ -28,6 +30,7 @@ impl Default for TransferGenConfig {
     }
 }
 
+/// Генератор транзакций по умолчанию
 #[derive(Default)]
 pub struct DefaultTransferGenerator {
     pub config: TransferGenConfig,
@@ -76,7 +79,6 @@ fn rand_address(rng: &mut impl Rng) -> String {
     format!("0x{}", suffix)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -108,4 +110,3 @@ mod tests {
         assert!(generator.generate(1).is_err());
     }
 }
-
