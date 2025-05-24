@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<()> {
     let stats = calculate_user_stats(&transfers);
 
     for stat in stats.iter().take(10) {
-        println!("{:?}", stat);
+        println!("{:#?}", stat);
     }
 
     Ok(())
