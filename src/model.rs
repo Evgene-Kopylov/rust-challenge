@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+/// Представляет финансовую транзакцию
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Transfer {
     pub ts: u64,
@@ -9,6 +10,7 @@ pub struct Transfer {
     pub usd_price: f64,
 }
 
+/// Статистика пользователя
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserStats {
     pub address: String,
@@ -17,3 +19,4 @@ pub struct UserStats {
     pub avg_sell_price: f64,
     pub max_balance: f64,
 }
+
